@@ -116,7 +116,10 @@ if __name__ == '__main__':
     optimizer2 = torch.optim.Adam(model.parameters(), lr=args.kg_lr)
     optimizer3 = torch.optim.Adam(model.parameters(), lr=args.cl_lr)
     dropout_rate = args.drop_rate
-    print('args.epoch: %d, and will change to 10', args.epoch)
+    perf_str = 'args: %s' % args
+    print(perf_str)
+    perf_str = 'args.epoch: %d, and will change to 10' % args.epoch
+    print(perf_str)
     args.epoch = 10
     for epoch in range(args.epoch):
         t1 = time()
