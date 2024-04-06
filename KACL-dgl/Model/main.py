@@ -61,7 +61,7 @@ if __name__ == '__main__':
     num_layers = len(weight_size) - 2
     heads = [args.heads] * num_layers + [1]
     print(config['n_users'], config['n_entities'], args.kge_size, config['n_relations'])
-    
+
     model = myGAT(args, config['n_entities'], config['n_relations'] + 1, weight_size[-2], weight_size[-1], num_layers, heads, F.elu, 0.1, 0., 0.01, False, pretrain=pretrain_data).cuda()
 
     adjM = data_generator.lap_list
@@ -71,14 +71,14 @@ if __name__ == '__main__':
     g = dgl.remove_self_loop(g)
     g = dgl.add_self_loop(g)
     g = g.to('cuda')
-    
+
     edge2type = {}
     for i,mat in enumerate(data_generator.kg_lap_list):
         for u,v in zip(*mat.nonzero()):
             edge2type[(u,v)] = i
     for i in range(data_generator.n_entities):
         edge2type[(i,i)] = len(data_generator.kg_lap_list)
-    
+
     kg_adjM = sum(data_generator.kg_lap_list)
     kg = dgl.DGLGraph(kg_adjM)
     kg = dgl.remove_self_loop(kg)
@@ -116,6 +116,8 @@ if __name__ == '__main__':
     optimizer2 = torch.optim.Adam(model.parameters(), lr=args.kg_lr)
     optimizer3 = torch.optim.Adam(model.parameters(), lr=args.cl_lr)
     dropout_rate = args.drop_rate
+    print('args.epoch: %d, and will change to 10', args.epoch)
+    args.epoch = 10
     for epoch in range(args.epoch):
         t1 = time()
         sub_cf_adjM = data_generator._get_cf_adj_list(is_subgraph = True, dropout_rate = dropout_rate)
@@ -124,13 +126,13 @@ if __name__ == '__main__':
         sub_cf_g = dgl.DGLGraph(sub_cf_lap)
         sub_cf_g = dgl.add_self_loop(sub_cf_g)
         sub_cf_g = sub_cf_g.to('cuda')
-        
+
         sub_kg_adjM, _ = data_generator._get_kg_adj_list(is_subgraph = True, dropout_rate = dropout_rate)
         sub_kg_lap = sum(data_generator._get_kg_lap_list(is_subgraph = True, subgraph_adj = sub_kg_adjM))
         sub_kg = dgl.DGLGraph(sub_kg_lap)
         sub_kg = dgl.remove_self_loop(sub_kg)
         sub_kg = dgl.add_self_loop(sub_kg)
-        
+
         sub_kg = sub_kg.to('cuda')
         loss, base_loss, kge_loss, reg_loss, cl_loss = 0., 0., 0., 0., 0.
         cf_drop, kg_drop = 0., 0.
@@ -144,15 +146,15 @@ if __name__ == '__main__':
         """
         for idx in range(n_batch):
             model.train()
-            btime= time() 
+            btime= time()
             batch_data = data_generator.generate_train_batch()
             loss, cf_drop, kg_drop = model("cf", g, sub_cf_g, sub_kg, batch_data['users'], batch_data['pos_items'] +  data_generator.n_users, batch_data['neg_items'] + data_generator.n_users)
-            
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
-            
+
+
         for idx in range(n_kg_batch):
             model.train()
             batch_data = data_generator.generate_train_kg_batch()
@@ -161,12 +163,12 @@ if __name__ == '__main__':
             optimizer2.zero_grad()
             kge_loss.backward()
             optimizer2.step()
-        
+
         for idx in range(n_cl_batch):
             model.train()
             batch_data = data_generator.generate_train_cl_batch()
             cl_loss = model("cl", sub_cf_g, sub_kg, batch_data['items'])
-            
+
             optimizer3.zero_grad()
             cl_loss.backward()
             optimizer3.step()
@@ -179,13 +181,13 @@ if __name__ == '__main__':
                     epoch, time() - t1, float(loss), float(kge_loss), float(cl_loss), float(cf_drop), float(kg_drop))
                 print(perf_str)
             continue
-        
+
 
         """
         *********************************************************
         Test.
         """
-        
+
         t2 = time()
         users_to_test = list(data_generator.test_user_dict.keys())
 
@@ -216,7 +218,7 @@ if __name__ == '__main__':
         # early stopping when cur_best_pre_0 is decreasing for ten successive steps.
         if should_stop == True:
             break
-   
+
         # *********************************************************
         # save the user & item embeddings for pretraining.
         if ret['recall'][0] == cur_best_pre_0 and args.save_flag == 1:
