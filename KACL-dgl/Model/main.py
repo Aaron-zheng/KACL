@@ -116,11 +116,9 @@ if __name__ == '__main__':
     optimizer2 = torch.optim.Adam(model.parameters(), lr=args.kg_lr)
     optimizer3 = torch.optim.Adam(model.parameters(), lr=args.cl_lr)
     dropout_rate = args.drop_rate
+    # 默认参数为：Namespace(weights_path='', data_path='../Data/', proj_path='', dataset='movie-lens', pretrain=-1, verbose=1, epoch=1000, embed_size=64, kge_size=64, layer_size='[64, 32, 16]', sub_layer_size='[64, 32, 16]', batch_size=8192, batch_size_kg=8192, batch_size_cl=8192, regs='[1e-5,1e-5,1e-2]', lr=0.0001, kg_lr=0.0001, cl_lr=0.0001, drop_rate=0.7, temperature=0.7, adj_type='si', adj_uni_type='sum', gpu_id=0, node_dropout='[0.1]', mess_dropout='[0.1]', Ks='[10, 20, 40, 60, 80, 100]', save_flag=0, test_flag='part', report=0, use_att=False, use_kge=False, l1_flag=False, heads=1, weight_decay=1e-05, kg_weight_decay=1e-05, alpha=0.0, cl_alpha=1.0)
     perf_str = 'args: %s' % args
     print(perf_str)
-    perf_str = 'args.epoch: %d, and will change to 10' % args.epoch
-    print(perf_str)
-    args.epoch = 10
     for epoch in range(args.epoch):
         t1 = time()
         sub_cf_adjM = data_generator._get_cf_adj_list(is_subgraph = True, dropout_rate = dropout_rate)
