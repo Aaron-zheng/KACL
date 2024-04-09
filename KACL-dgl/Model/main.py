@@ -12,10 +12,14 @@ import multiprocessing
 import os
 import sys
 
+# 用于获取系统中的CPU核心数量
 cores = multiprocessing.cpu_count() // 2
 
 def load_pretrained_data(args):
     pre_model = 'mf'
+    # proj_path=‘’
+    # dataset=‘movie-lens’
+    # pre_model=-1
     pretrain_path = '%s../pretrain/%s/%s.npz' % (args.proj_path, args.dataset, pre_model)
     try:
         pretrain_data = np.load(pretrain_path)
@@ -26,10 +30,15 @@ def load_pretrained_data(args):
 
 
 if __name__ == '__main__':
+    # 函数用于设置随机数生成器的种子，以确保结果的可重复性。这对于实验的可复现性非常重要
     torch.manual_seed(2023)
+    # np.random.seed(seed)函数用于指定随机数生成器的种子。设置种子值确保了随机数生成的可重复性
     np.random.seed(2023)
+    # 构造基础入参
     args = parse_args()
-
+    # 0 for NAIS_prod, 1 for NAIS_concat，默认用的0
+    # NAIS_prod 通过元素乘积操作来强调物品特征间的线性关系，更适用于特征间关系较为简单、直接的推荐场景。
+    # NAIS_concat 通过连接操作来捕捉物品特征间的复杂非线性关系，适用于特征间相互作用复杂的推荐场景。
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.gpu_id)
 
     """
@@ -41,14 +50,19 @@ if __name__ == '__main__':
     config['n_items'] = data_generator.n_items
     config['n_relations'] = data_generator.n_relations
     config['n_entities'] = data_generator.n_entities
-
+    #
     t0 = time()
 
     """
     *********************************************************
     Use the pretrained data to initialize the embeddings.
     """
+    # 0: No pretrain,
+    # -1: Pretrain with the learned embeddings, 、
+    # 1: Pretrain with stored models.
+    # 默认值为-1
     if args.pretrain in [-1, -2]:
+        # 加载与训练模型
         pretrain_data = load_pretrained_data(args)
     else:
         pretrain_data = None
