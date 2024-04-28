@@ -22,6 +22,7 @@ def load_pretrained_data(args):
     # pre_model=-1
     pretrain_path = '%s../pretrain/%s/%s.npz' % (args.proj_path, args.dataset, pre_model)
     try:
+        # 加载预训练
         pretrain_data = np.load(pretrain_path)
         print('load the pretrained bprmf model parameters.')
     except Exception:
@@ -62,7 +63,7 @@ if __name__ == '__main__':
     # 1: Pretrain with stored models.
     # 默认值为-1
     if args.pretrain in [-1, -2]:
-        # 加载与训练模型
+        # 加载预训练模型
         pretrain_data = load_pretrained_data(args)
     else:
         pretrain_data = None
@@ -71,16 +72,21 @@ if __name__ == '__main__':
     *********************************************************
     Select one of the models.
     """
+    # Output sizes of every layer，[64, 32, 16]
     weight_size = eval(args.layer_size)
+    # 这里为什么要减2？
     num_layers = len(weight_size) - 2
+    # heads默认值为1
+    # 这里为什么这样计算？
     heads = [args.heads] * num_layers + [1]
     print(config['n_users'], config['n_entities'], args.kge_size, config['n_relations'])
-
+    #
     model = myGAT(args, config['n_entities'], config['n_relations'] + 1, weight_size[-2], weight_size[-1], num_layers, heads, F.elu, 0.1, 0., 0.01, False, pretrain=pretrain_data).cuda()
-
+    #
     adjM = data_generator.lap_list
-
+    #
     print(len(adjM.nonzero()[0]))
+    #
     g = dgl.DGLGraph(adjM)
     g = dgl.remove_self_loop(g)
     g = dgl.add_self_loop(g)
