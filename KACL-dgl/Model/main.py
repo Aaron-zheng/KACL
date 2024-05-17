@@ -31,9 +31,8 @@ def load_pretrained_data(args):
 
 
 if __name__ == '__main__':
-    # 函数用于设置随机数生成器的种子，以确保结果的可重复性。这对于实验的可复现性非常重要
+    # 为确保结果的可重复性，设置了 torch.manual_seed(2023) 和 np.random.seed(2023)，以防止因随机性而导致的实验结果不稳定。
     torch.manual_seed(2023)
-    # np.random.seed(seed)函数用于指定随机数生成器的种子。设置种子值确保了随机数生成的可重复性
     np.random.seed(2023)
     # 构造基础入参
     args = parse_args()
@@ -80,13 +79,13 @@ if __name__ == '__main__':
     # 这里为什么这样计算？
     heads = [args.heads] * num_layers + [1]
     print(config['n_users'], config['n_entities'], args.kge_size, config['n_relations'])
-    #
+    # 构建基于图神经网络的推荐系统模型，包含了多层的 GAT
     model = myGAT(args, config['n_entities'], config['n_relations'] + 1, weight_size[-2], weight_size[-1], num_layers, heads, F.elu, 0.1, 0., 0.01, False, pretrain=pretrain_data).cuda()
     #
     adjM = data_generator.lap_list
     #
     print(len(adjM.nonzero()[0]))
-    #
+    # 构建 DGL 图对象
     g = dgl.DGLGraph(adjM)
     g = dgl.remove_self_loop(g)
     g = dgl.add_self_loop(g)
@@ -132,6 +131,7 @@ if __name__ == '__main__':
     loss_loger, pre_loger, rec_loger, ndcg_loger, hit_loger = [], [], [], [], []
     stopping_step = 0
     should_stop = False
+    # 来训练模型
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     optimizer2 = torch.optim.Adam(model.parameters(), lr=args.kg_lr)
     optimizer3 = torch.optim.Adam(model.parameters(), lr=args.cl_lr)
@@ -232,6 +232,8 @@ if __name__ == '__main__':
                         ret['precision'][0], ret['precision'][-1], ret['hit_ratio'][0], ret['hit_ratio'][-1],
                         ret['ndcg'][0], ret['ndcg'][-1])
             print(perf_str)
+
+        #  函数进行早停检查，以防止过度训练。
         cur_best_pre_0, stopping_step, should_stop = early_stopping(ret['recall'][0], cur_best_pre_0,
                                                                     stopping_step, expected_order='acc', flag_step=10)
 
@@ -251,6 +253,8 @@ if __name__ == '__main__':
             print('saved')
             # print(test_saved_file(users_to_test))
 
+
+    # 记录损失、召回率、精度、命中率、NDCG
     recs = np.array(rec_loger)
     pres = np.array(pre_loger)
     ndcgs = np.array(ndcg_loger)

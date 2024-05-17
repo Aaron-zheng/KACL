@@ -79,42 +79,64 @@ class KGAT_loader(Data):
             b_cols = a_rows
             # 为第二个稀疏矩阵中的每个边设置权重，也全为1。
             b_vals = [1.] * len(b_rows)
-
+            # 创建了第一个稀疏矩阵，代表从 a_rows 到 a_cols 的关系。
             a_adj = sp.coo_matrix((a_vals, (a_rows, a_cols)), shape=(n_all, n_all))
+            # 创建了第二个稀疏矩阵，代表从 b_rows 到 b_cols 的关系。
             b_adj = sp.coo_matrix((b_vals, (b_rows, b_cols)), shape=(n_all, n_all))
-
+            # 函数返回了两个稀疏矩阵 a_adj 和 b_adj
             return a_adj, b_adj
-        
+
+        # 一个循环中处理一组关系数据，并生成一系列稀疏矩阵，同时更新关系的计数。
+        # 主要作用是将关系数据转换成稀疏矩阵，并为每个矩阵分配相应的关系ID
         for r_id in self.relation_dict.keys():
             #print(r_id)
+            # 通过将字典中的关系数据转换成NumPy数组
+            # 这两个矩阵通常代表某个关系的正向和逆向结构
             K, K_inv = _np_mat2sp_adj(np.array(self.relation_dict[r_id]))
+            # 将生成的第一个稀疏矩阵追加到列表
             adj_mat_list.append(K)
+            # 将当前关系的ID追加到列表
             adj_r_list.append(r_id)
-
+            # 将第二个稀疏矩阵追加到
             adj_mat_list.append(K_inv)
+            # 为逆向关系分配一个新的ID，并追加到
             adj_r_list.append(r_id + self.n_relations)
+        # 更新总关系数为原来的两倍。这一操作用于确保正向和逆向关系之间的独立性。
         self.n_relations = self.n_relations * 2
         #print(adj_r_list)
+        # 一个是生成的稀疏矩阵 adj_mat_list，另一个是对应的关系ID adj_r_list
         return adj_mat_list, adj_r_list
 
+    # 计算双向正则化拉普拉斯矩阵
     def _bi_norm_lap(self, adj):
+        # 计算稀疏矩阵 adj 的行和，这代表每个节点的度数。该行和是稀疏矩阵在图结构中非常重要的属性。
         rowsum = np.array(adj.sum(1))
-
+        # 计算每个度数的倒数的平方根。这是为了在拉普拉斯矩阵的正则化过程中使用。
         d_inv_sqrt = np.power(rowsum, -0.5).flatten()
+        # 将无穷大（由于除以零）设置为0，以避免异常值。
         d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
+        # 创建一个对角稀疏矩阵，值为 d_inv_sqrt。这个对角矩阵用于将拉普拉斯矩阵中的行和列的影响正则化
         d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-
+        # 是计算双向正则化拉普拉斯矩阵
+        # adj.dot(d_mat_inv_sqrt) 将 adj 与对角稀疏矩阵 d_mat_inv_sqrt 相乘，以调整行的权重。
+        # transpose() 对结果进行转置，以便调整列的权重。
+        # dot(d_mat_inv_sqrt) 再次与 d_mat_inv_sqrt 相乘，完成正则化。
         bi_lap = adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt)
+        # 返回拉普拉斯矩阵的COO（Coordinate list）格式
         return bi_lap.tocoo()
 
     def _si_norm_lap(self, adj):
+        # 计算稀疏矩阵 adj 的行和。这通常代表每个节点的度数，表示该节点在图中的连接数量。
         rowsum = np.array(adj.sum(1))
-
+        # 计算每个度数的倒数。这用于单向正则化，因为在标准拉普拉斯矩阵中，度数的倒数可以用来调整每个节点的影响。
         d_inv = np.power(rowsum, -1).flatten()
+        # 如果某个节点的度数为零，度数的倒数会变成无穷大，这里将其设置为0，以避免计算错误。
         d_inv[np.isinf(d_inv)] = 0.
+        # 基于 d_inv 创建一个对角稀疏矩阵。
         d_mat_inv = sp.diags(d_inv)
-
+        # 将对角稀疏矩阵 d_mat_inv 与稀疏矩阵 adj 相乘，
         norm_adj = d_mat_inv.dot(adj)
+        # 返回COO格式的单向正则化拉普拉斯矩阵
         return norm_adj.tocoo()
     
     def _get_kg_lap_list(self, is_subgraph = False, subgraph_adj = None):
@@ -130,21 +152,32 @@ class KGAT_loader(Data):
         
     def _get_lap_list(self, is_subgraph = False, subgraph_adj = None):
         if is_subgraph is True:
+            # 如果 is_subgraph 为 True，则使用 subgraph_adj 作为输入的稀疏矩阵。这个条件通常用于处理子图。
             adj = subgraph_adj
         else:
+            #  否则，默认使用 self.adj_list 作为稀疏矩阵
             adj = self.adj_list
         if self.args.adj_type == 'bi':
+            # 如果是 'bi'，调用 _bi_norm_lap 函数来计算双向正则化的拉普拉斯矩阵
             lap_list = self._bi_norm_lap(adj)
         else:
+            # 如果 adj_type 不为 'bi'，则默认使用单向正则化的拉普拉斯矩阵。
             lap_list = self._si_norm_lap(adj)
+        # 返回生成的拉普拉斯矩阵列表
         return lap_list
 
+    # 这个函数的作用是构建一个知识图谱的表示，其中实体通过不同关系相互连接。
+    # 返回的 all_kg_dict 提供了一种结构化的方式来存储和访问知识图谱中的实体和关系
     def _get_all_kg_dict(self):
+        # 创建一个 defaultdict，其中默认值是一个空列表。
         all_kg_dict = collections.defaultdict(list)
-        
+        # 循环遍历 self.relation_dict 的所有键
         for relation in self.relation_dict.keys():
+            # head 和 tail 分别代表关系的起点和终点
             for head, tail in self.relation_dict[relation]:
+                # 表示 head 通过这个关系连接到 tail。
                 all_kg_dict[head].append((tail, relation))
+                # 通过为 relation 加上 self.n_relations，确保反向关系被处理。这一操作常用于表示无向图或反向关系。
                 all_kg_dict[tail].append((head, relation + self.n_relations))
         return all_kg_dict
 
@@ -200,11 +233,19 @@ class KGAT_loader(Data):
         return users, pos_items, neg_items
 
 
+    # 生成用于训练对比学习(Contrastive Learning)的批次数据
+    # 据给定的批次大小和现有的物品集合，从中随机选择一组物品作为批次
     def _generate_train_cl_batch(self):
+        # 这一行代码检查对比学习的批次大小 self.batch_size_cl 是否小于等于现有的物品数量 self.exist_items。
+        # 这是为了确保从物品集合中采样时不会超过可用的物品数量。
         if self.batch_size_cl <= len(self.exist_items):
+            # 如果批次大小小于或等于现有物品数量，则从 self.exist_items 中随机采样 self.batch_size_cl 个物品
             items = rd.sample(self.exist_items, self.batch_size_cl)
         else:
+            # 处理批次大小大于现有物品的情况
+            # 首先将 self.exist_items 转换为列表，以确保可以使用索引操作。
             items_list = list(self.exist_items)
+            #  items_list 中选择 self.batch_size_cl 次。此处允许重复选择，因此可能会多次选择相同的物品。
             items = [rd.choice(items_list) for _ in range(self.batch_size_cl)]
         return items
     
